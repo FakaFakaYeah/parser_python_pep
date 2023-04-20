@@ -62,7 +62,6 @@ def latest_versions(session):
         else:
             version, status = a_tag.text, ''
         results.append((link, version, status))
-
     return results
 
 
@@ -97,12 +96,12 @@ def pep(session):
     )
 
     status_count = {}
-    result = []
+    results = [('Статус', 'Количество')]
     for pep_block in tqdm(pep_list, desc='Обработано блоков PEP'):
         pep_group = find_tag(pep_block, 'tbody').find_all('tr')
 
         for pep in pep_group:
-            type_status = find_tag(pep, 'td').string
+            type_status = find_tag(pep, 'td').text
             if type_status is None:
                 preview_status = ''
             else:
@@ -121,7 +120,7 @@ def pep(session):
             status_title = find_string(pep_info, 'Status').previous
             status = find_tag(
                 status_title, 'dd', method='find_next_sibling'
-            ).string
+            ).text
 
             if status not in EXPECTED_STATUS[preview_status]:
                 logging.info(f"""
@@ -133,8 +132,8 @@ def pep(session):
             status_count.setdefault(status, 0)
             status_count[status] += 1
     for status, count in status_count.items():
-        result.append((status, count))
-    return result
+        results.append((status, count))
+    return results
 
 
 MODE_TO_FUNCTION = {
