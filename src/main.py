@@ -9,10 +9,11 @@ from tqdm import tqdm
 from configs import configure_argument_parser, configure_logging
 from constants import BASE_DIR, MAIN_DOC_URL, PEP_URL, EXPECTED_STATUS
 from outputs import control_output
-from utils import get_response, find_tag, find_string
+from utils import get_response, find_tag
 
 
 def whats_new(session):
+    """Парсер нововведений версий Python"""
     whats_new_url = urljoin(MAIN_DOC_URL, 'whatsnew/')
     response = get_response(session, whats_new_url)
 
@@ -23,7 +24,7 @@ def whats_new(session):
                                               attrs={'class': 'toctree-l1'})
 
     results = [('Ссылка на статью', 'Заголовок', 'Редактор, Автор')]
-    for section in tqdm(sections_by_python):
+    for section in tqdm(sections_by_python, desc='Идет сбор информации!'):
         version = find_tag(section, 'a')
         version_link = urljoin(whats_new_url, version['href'])
         response = get_response(session, version_link)
@@ -38,13 +39,14 @@ def whats_new(session):
 
 
 def latest_versions(session):
+    """Парсер сбора информации о версиях Python"""
     response = get_response(session, MAIN_DOC_URL)
 
     soup = BeautifulSoup(response.text, features='lxml')
     sidebar = find_tag(soup, 'div', attrs={'class': 'sphinxsidebarwrapper'})
     ul_tags = sidebar.find_all('ul')
 
-    for ul in ul_tags:
+    for ul in tqdm(ul_tags, desc='Идет сбор информации!'):
         if 'All versions' in ul.text:
             a_tags = ul.find_all('a')
             break
@@ -66,6 +68,7 @@ def latest_versions(session):
 
 
 def download(session):
+    """Парсер скачивания архива с документацией Python"""
     downloads_url = urljoin(MAIN_DOC_URL, 'download.html')
     response = get_response(session, downloads_url)
 
@@ -88,6 +91,7 @@ def download(session):
 
 
 def pep(session):
+    """Парсер сбора статистики о документах PEP"""
     response = get_response(session, PEP_URL)
     soup = BeautifulSoup(response.text, features='lxml')
     section = find_tag(soup, 'section', attrs={'id': 'index-by-category'})
@@ -103,17 +107,19 @@ def pep(session):
         for pep in pep_group:
             type_status = find_tag(pep, 'td').text
             preview_status = type_status[1:]
-            pep_name = find_tag(
-                pep, 'a', attrs={'class': 'pep reference internal'}
-            )['href']
-            pep_page = urljoin(PEP_URL, pep_name)
+            pep_page = urljoin(
+                PEP_URL,
+                find_tag(
+                    pep, 'a', attrs={'class': 'pep reference internal'}
+                )['href']
+            )
             response = get_response(session, pep_page)
 
             soup = BeautifulSoup(response.text, features='lxml')
             pep_info = find_tag(
                 soup, 'dl', attrs={'class': 'rfc2822 field-list simple'}
             )
-            status_title = find_string(pep_info, 'Status').parent
+            status_title = find_tag(pep_info, string='Status').parent
             status = find_tag(
                 status_title, 'dd', method='find_next_sibling'
             ).text
