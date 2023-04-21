@@ -90,7 +90,7 @@ def download(session):
 def pep(session):
     response = get_response(session, PEP_URL)
     soup = BeautifulSoup(response.text, features='lxml')
-    section = find_tag(soup, 'section', attrs={'id': 'pep-content'})
+    section = find_tag(soup, 'section', attrs={'id': 'index-by-category'})
     pep_list = section.find_all(
         'table', class_='pep-zero-table docutils align-default'
     )
@@ -102,10 +102,7 @@ def pep(session):
 
         for pep in pep_group:
             type_status = find_tag(pep, 'td').text
-            if type_status is None:
-                preview_status = ''
-            else:
-                preview_status = type_status[1:]
+            preview_status = type_status[1:]
             pep_name = find_tag(
                 pep, 'a', attrs={'class': 'pep reference internal'}
             )['href']
@@ -113,11 +110,10 @@ def pep(session):
             response = get_response(session, pep_page)
 
             soup = BeautifulSoup(response.text, features='lxml')
-            section = find_tag(soup, 'section', attrs={'id': 'pep-content'})
             pep_info = find_tag(
-                section, 'dl', attrs={'class': 'rfc2822 field-list simple'}
+                soup, 'dl', attrs={'class': 'rfc2822 field-list simple'}
             )
-            status_title = find_string(pep_info, 'Status').previous
+            status_title = find_string(pep_info, 'Status').parent
             status = find_tag(
                 status_title, 'dd', method='find_next_sibling'
             ).text
@@ -131,8 +127,9 @@ def pep(session):
                 """)
             status_count.setdefault(status, 0)
             status_count[status] += 1
-    for status, count in status_count.items():
-        results.append((status, count))
+    total = sum(status_count.values())
+    results += tuple(status_count.items())
+    results.append(('Total', total))
     return results
 
 
