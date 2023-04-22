@@ -7,7 +7,9 @@ from bs4 import BeautifulSoup
 from tqdm import tqdm
 
 from configs import configure_argument_parser, configure_logging
-from constants import BASE_DIR, MAIN_DOC_URL, PEP_URL, EXPECTED_STATUS
+from constants import (
+    BASE_DIR, MAIN_DOC_URL, PEP_URL, EXPECTED_STATUS, DOWNLOADS_DIR
+)
 from outputs import control_output
 from utils import get_response, find_tag
 
@@ -15,11 +17,14 @@ from utils import get_response, find_tag
 def whats_new(session):
     """Парсер нововведений версий Python"""
     whats_new_url = urljoin(MAIN_DOC_URL, 'whatsnew/')
-    response = get_response(session, whats_new_url)
 
-    soup = BeautifulSoup(response.text, features='lxml')
-    main_div = find_tag(soup, 'section', attrs={'id': 'what-s-new-in-python'})
-    div_with_ul = find_tag(main_div, 'div', attrs={'class': 'toctree-wrapper'})
+    soup = BeautifulSoup(
+        get_response(session, whats_new_url).text, features='lxml'
+    )
+    div_with_ul = find_tag(
+        find_tag(soup, 'section', attrs={'id': 'what-s-new-in-python'}),
+        'div', attrs={'class': 'toctree-wrapper'}
+    )
     sections_by_python = div_with_ul.find_all('li',
                                               attrs={'class': 'toctree-l1'})
 
@@ -27,9 +32,10 @@ def whats_new(session):
     for section in tqdm(sections_by_python, desc='Идет сбор информации!'):
         version = find_tag(section, 'a')
         version_link = urljoin(whats_new_url, version['href'])
-        response = get_response(session, version_link)
 
-        soup = BeautifulSoup(response.text, features='lxml')
+        soup = BeautifulSoup(
+            get_response(session, version_link).text, features='lxml'
+        )
         h1 = find_tag(soup, 'h1')
         dl = find_tag(soup, 'dl')
         dl_text = dl.text.replace('\n', ' ')
@@ -40,14 +46,14 @@ def whats_new(session):
 
 def latest_versions(session):
     """Парсер сбора информации о версиях Python"""
-    response = get_response(session, MAIN_DOC_URL)
-
-    soup = BeautifulSoup(response.text, features='lxml')
+    soup = BeautifulSoup(
+        get_response(session, MAIN_DOC_URL).text, features='lxml'
+    )
     sidebar = find_tag(soup, 'div', attrs={'class': 'sphinxsidebarwrapper'})
     ul_tags = sidebar.find_all('ul')
 
     for ul in tqdm(ul_tags, desc='Идет сбор информации!'):
-        if 'All versions' in ul.text:
+        if 'All version' in ul.text:
             a_tags = ul.find_all('a')
             break
         else:
@@ -70,17 +76,18 @@ def latest_versions(session):
 def download(session):
     """Парсер скачивания архива с документацией Python"""
     downloads_url = urljoin(MAIN_DOC_URL, 'download.html')
-    response = get_response(session, downloads_url)
 
-    soup = BeautifulSoup(response.text, features='lxml')
-    table_tag = find_tag(soup, 'table', attrs={'class': 'docutils'})
-    pdf_a4_tag = find_tag(table_tag, 'a',
-                          attrs={'href': re.compile(r'.+pdf-a4\.zip$')})
-    pdf_a4_link = pdf_a4_tag['href']
+    soup = BeautifulSoup(
+        get_response(session, downloads_url).text, features='lxml'
+    )
+    pdf_a4_link = find_tag(
+        find_tag(soup, 'table', attrs={'class': 'docutils'}), 'a',
+        attrs={'href': re.compile(r'.+pdf-a4\.zip$')}
+    )['href']
     archive_url = urljoin(downloads_url, pdf_a4_link)
 
     filename = archive_url.split('/')[-1]
-    downloads_dir = BASE_DIR / 'downloads'
+    downloads_dir = BASE_DIR / DOWNLOADS_DIR
     downloads_dir.mkdir(exist_ok=True)
     archive_path = downloads_dir / filename
 
@@ -92,8 +99,7 @@ def download(session):
 
 def pep(session):
     """Парсер сбора статистики о документах PEP"""
-    response = get_response(session, PEP_URL)
-    soup = BeautifulSoup(response.text, features='lxml')
+    soup = BeautifulSoup(get_response(session, PEP_URL).text, features='lxml')
     section = find_tag(soup, 'section', attrs={'id': 'index-by-category'})
     pep_list = section.find_all(
         'table', class_='pep-zero-table docutils align-default'
@@ -113,15 +119,19 @@ def pep(session):
                     pep, 'a', attrs={'class': 'pep reference internal'}
                 )['href']
             )
-            response = get_response(session, pep_page)
 
-            soup = BeautifulSoup(response.text, features='lxml')
-            pep_info = find_tag(
-                soup, 'dl', attrs={'class': 'rfc2822 field-list simple'}
+            soup = BeautifulSoup(
+                get_response(session, pep_page).text, features='lxml'
             )
-            status_title = find_tag(pep_info, string='Status').parent
             status = find_tag(
-                status_title, 'dd', method='find_next_sibling'
+                find_tag(
+                    find_tag(
+                        soup, 'dl',
+                        attrs={'class': 'rfc2822 field-list simple'}
+                    ),
+                    string='Status'
+                ).parent,
+                'dd', method='find_next_sibling'
             ).text
 
             if status not in EXPECTED_STATUS[preview_status]:
@@ -148,21 +158,27 @@ MODE_TO_FUNCTION = {
 
 
 def main():
-    configure_logging()
-    logging.info('Парсер запущен!')
+    try:
+        configure_logging()
+        logging.info('Парсер запущен!')
 
-    parser = configure_argument_parser(MODE_TO_FUNCTION.keys())
-    args = parser.parse_args()
-    logging.info(f'Аргументы командной строки: {args}')
+        parser = configure_argument_parser(MODE_TO_FUNCTION.keys())
+        args = parser.parse_args()
+        logging.info(f'Аргументы командной строки: {args}')
 
-    session = requests_cache.CachedSession()
-    if args.clear_cache:
-        session.cache.clear()
-    results = MODE_TO_FUNCTION[args.mode](session)
+        session = requests_cache.CachedSession()
+        if args.clear_cache:
+            session.cache.clear()
+        results = MODE_TO_FUNCTION[args.mode](session)
 
-    if results is not None:
-        control_output(results, args)
-    logging.info('Парсер завершил работу.')
+        if results is not None:
+            control_output(results, args)
+        logging.info('Парсер завершил работу.')
+    except Exception as error:
+        logging.error(
+            f"Сбой в работе программы: {error}",
+            stack_info=True
+        )
 
 
 if __name__ == '__main__':

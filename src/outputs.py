@@ -4,15 +4,15 @@ import logging
 
 from prettytable import PrettyTable
 
-from constants import BASE_DIR, DATETIME_FORMAT
+from constants import BASE_DIR, DATETIME_FORMAT, PRETTY, FILE, RESULTS_DIR
 
 
 def control_output(results, cli_args):
     """Конфигуратор вывода результата"""
     output = cli_args.output
-    if output == 'pretty':
+    if output == PRETTY:
         pretty_output(results)
-    elif output == 'file':
+    elif output == FILE:
         file_output(results, cli_args)
     else:
         default_output(results)
@@ -35,7 +35,7 @@ def pretty_output(results):
 
 def file_output(results, cli_args):
     """Вывод результата в csv файл"""
-    results_dir = BASE_DIR / 'results'
+    results_dir = BASE_DIR / RESULTS_DIR
     results_dir.mkdir(exist_ok=True)
     now = dt.datetime.now()
     file_name = f'{cli_args.mode}_{now.strftime(DATETIME_FORMAT)}.csv'

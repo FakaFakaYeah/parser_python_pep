@@ -1,8 +1,6 @@
-import logging
-
 from requests import RequestException
 
-from exceptions import ParserFindTagException
+from exceptions import ParserFindTagException, RequestError
 
 
 def get_response(session, url):
@@ -12,10 +10,7 @@ def get_response(session, url):
         response.encoding = 'utf-8'
         return response
     except RequestException:
-        logging.exception(
-            f'Возникла ошибка при загрузке страницы {url}',
-            stack_info=True
-        )
+        raise RequestError(f'Возникла ошибка при загрузке страницы {url}')
 
 
 def find_tag(soup, tag=None, attrs=None, string=None, method='find'):
@@ -25,11 +20,7 @@ def find_tag(soup, tag=None, attrs=None, string=None, method='find'):
             tag, attrs=(attrs or {}), string=string or ''
         )
     except AttributeError as error:
-        error_msg = f'Тэг не найден: {error}'
-        logging.error(error_msg)
-        raise AttributeError(error_msg)
+        raise AttributeError(f'Тэг не найден: {error}')
     if searched_tag is None:
-        error_msg = f'Не найден тег {tag} {attrs} {string}'
-        logging.error(error_msg, stack_info=True)
-        raise ParserFindTagException(error_msg)
+        raise ParserFindTagException(f'Не найден тег {tag} {attrs} {string}')
     return searched_tag

@@ -19,3 +19,8 @@ EXPECTED_STATUS = {
     'W': ('Withdrawn',),
     '': ('Draft', 'Active'),
 }
+PRETTY = 'pretty'
+FILE = 'file'
+DOWNLOADS_DIR = 'downloads'
+RESULTS_DIR = 'results'
+LOGS_DIR = 'logs'
