@@ -21,10 +21,7 @@ def whats_new(session):
     soup = BeautifulSoup(
         get_response(session, whats_new_url).text, features='lxml'
     )
-    div_with_ul = find_tag(
-        find_tag(soup, 'section', attrs={'id': 'what-s-new-in-python'}),
-        'div', attrs={'class': 'toctree-wrapper'}
-    )
+    div_with_ul = find_tag(soup, 'div', attrs={'class': 'toctree-wrapper'})
     sections_by_python = div_with_ul.find_all('li',
                                               attrs={'class': 'toctree-l1'})
 
